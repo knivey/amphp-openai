@@ -116,4 +116,41 @@ class OpenAiClientTest extends TestCase
 
         $this->assertSame('https://custom.api.com/v1/chat/completions', $capturedUriHolder->value);
     }
+
+    public function testChatCompletionStreamYieldsChunks(): void
+    {
+        $sseData = "data: " . json_encode([
+            'id' => 'chatcmpl-123',
+            'object' => 'chat.completion.chunk',
+            'created' => 1234567890,
+            'model' => 'gpt-4',
+            'choices' => [
+                ['index' => 0, 'delta' => ['content' => 'Hello'], 'finish_reason' => null],
+            ],
+        ]) . "\n\ndata: " . json_encode([
+            'id' => 'chatcmpl-123',
+            'object' => 'chat.completion.chunk',
+            'created' => 1234567890,
+            'model' => 'gpt-4',
+            'choices' => [
+                ['index' => 0, 'delta' => ['content' => ' world'], 'finish_reason' => 'stop'],
+            ],
+        ]) . "\n\ndata: [DONE]\n\n";
+
+        $mock = $this->createMockClient($sseData);
+
+        $client = new OpenAiClient('test-key', httpClient: new \Knivey\OpenAi\HttpClient('test-key', $mock));
+        $request = new ChatRequest(model: 'gpt-4', messages: [Message::user('hello')]);
+
+        $chunks = [];
+        $pipeline = $client->chatCompletionStream($request);
+        foreach ($pipeline as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        $this->assertCount(2, $chunks);
+        $this->assertSame('Hello', $chunks[0]->choices[0]->delta['content']);
+        $this->assertSame(' world', $chunks[1]->choices[0]->delta['content']);
+        $this->assertSame('stop', $chunks[1]->choices[0]->finishReason);
+    }
 }

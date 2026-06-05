@@ -2,10 +2,7 @@
 
 namespace Knivey\OpenAi\Tests;
 
-use Amp\ByteStream\Payload;
-use Amp\Future;
 use Amp\Http\Client\DelegateHttpClient;
-use Amp\Http\Client\HttpClientBuilder;
 use Amp\Http\Client\Request as HttpRequest;
 use Amp\Http\Client\Response;
 use Knivey\OpenAi\Exception\AuthenticationException;
