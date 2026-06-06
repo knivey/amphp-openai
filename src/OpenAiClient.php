@@ -6,6 +6,7 @@ use Amp\Http\Client\HttpClientBuilder;
 use Amp\Pipeline\Pipeline;
 use Knivey\OpenAi\Request\ChatRequest;
 use Knivey\OpenAi\Response\ChatChunk;
+use Knivey\OpenAi\Request\Tool\ToolRegistry;
 use Knivey\OpenAi\Response\ChatResponse;
 
 class OpenAiClient
@@ -34,6 +35,85 @@ class OpenAiClient
         $data = $this->getHttpClient()->post($this->baseUrl . '/chat/completions', $body);
 
         return ChatResponse::fromApiResponse($data);
+    }
+
+    public function chatCompletionWithTools(
+        ChatRequest $request,
+        ToolRegistry $registry,
+        int $maxIterations = 10,
+    ): ChatResponse {
+        $messages = $request->messages;
+        $iteration = 0;
+
+        while (true) {
+            $iteration++;
+            if ($iteration > $maxIterations) {
+                throw new \RuntimeException(
+                    "Tool call loop exceeded max iterations ({$maxIterations}).",
+                );
+            }
+
+            $currentRequest = new ChatRequest(
+                model: $request->model,
+                messages: $messages,
+                temperature: $request->temperature,
+                topP: $request->topP,
+                maxTokens: $request->maxTokens,
+                maxCompletionTokens: $request->maxCompletionTokens,
+                n: $request->n,
+                stop: $request->stop,
+                stream: $request->stream,
+                streamOptions: $request->streamOptions,
+                frequencyPenalty: $request->frequencyPenalty,
+                presencePenalty: $request->presencePenalty,
+                seed: $request->seed,
+                logprobs: $request->logprobs,
+                topLogprobs: $request->topLogprobs,
+                logitBias: $request->logitBias,
+                user: $request->user,
+                store: $request->store,
+                metadata: $request->metadata,
+                serviceTier: $request->serviceTier,
+                tools: $request->tools,
+                toolChoice: $request->toolChoice,
+                parallelToolCalls: $request->parallelToolCalls,
+                responseFormat: $request->responseFormat,
+                modalities: $request->modalities,
+                audio: $request->audio,
+                prediction: $request->prediction,
+                reasoningEffort: $request->reasoningEffort,
+                webSearch: $request->webSearch,
+                moderation: $request->moderation,
+            );
+
+            $response = $this->chatCompletion($currentRequest);
+
+            $toolCalls = $response->choices[0]->message->toolCalls;
+            if ($toolCalls === null || $toolCalls === []) {
+                return $response;
+            }
+
+            $assistantMessage = $response->choices[0]->message;
+            $messages[] = new \Knivey\OpenAi\Request\Message(
+                role: 'assistant',
+                content: $assistantMessage->content,
+                toolCalls: array_map(static fn (\Knivey\OpenAi\Response\ToolCall $tc): array => [
+                    'id' => $tc->id,
+                    'type' => $tc->type,
+                    'function' => $tc->function,
+                ], $assistantMessage->toolCalls ?? []),
+                refusal: $assistantMessage->refusal,
+            );
+
+            $results = $registry->dispatchAll(array_values($toolCalls));
+            foreach ($toolCalls as $toolCall) {
+                $result = $results[$toolCall->id];
+                $messages[] = \Knivey\OpenAi\Request\Message::tool(
+                    is_string($result) ? $result : json_encode($result, JSON_THROW_ON_ERROR),
+                    $toolCall->id,
+                );
+            }
+        }
     }
 
     /**
