@@ -14,7 +14,9 @@ class ReflectionTool implements ToolDefinition
 {
     private readonly \ReflectionFunctionAbstract $reflection;
     private readonly \Closure $callable;
-    /** @var array<string, mixed> */
+    /**
+     * @var array{type: string, properties: array<string, array{type: string, enum?: array<int, string|int>, default?: string|int|float|bool, description?: string}>, required?: array<int, string>}
+     */
     private readonly array $parametersSchema;
     private readonly ?string $description;
     private readonly ?bool $strict;
@@ -69,7 +71,7 @@ class ReflectionTool implements ToolDefinition
         ?bool $strict = null,
     ): self {
         if (is_string($method) && str_contains($method, '::')) {
-            $reflection = new ReflectionMethod($method);
+            $reflection = ReflectionMethod::createFromMethodName($method);
         } elseif (is_array($method)) {
             $reflection = new ReflectionMethod($method[0], $method[1]);
         } else {
@@ -119,6 +121,9 @@ class ReflectionTool implements ToolDefinition
         return ($this->callable)(...$namedArgs);
     }
 
+    /**
+     * @return array{type: string, function: array{name: string, description?: string, parameters: array{type: string, properties: array<string, array{type: string, enum?: array<int, string|int>, default?: string|int|float|bool, description?: string}>, required?: array<int, string>}, strict?: bool}}
+     */
     public function toArray(): array
     {
         $function = ['name' => $this->name];
@@ -155,7 +160,7 @@ class ReflectionTool implements ToolDefinition
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array{type: string, properties: array<string, array{type: string, enum?: array<int, string|int>, default?: string|int|float|bool, description?: string}>, required?: array<int, string>}
      */
     private function buildParametersSchema(): array
     {
@@ -178,7 +183,12 @@ class ReflectionTool implements ToolDefinition
             $prop = $this->buildPropertySchema($type, $param);
 
             if ($param->isDefaultValueAvailable()) {
-                $prop['default'] = $param->getDefaultValue();
+                $default = $param->getDefaultValue();
+                if ($default instanceof BackedEnum) {
+                    $default = $default->value;
+                }
+                assert(is_string($default) || is_int($default) || is_float($default) || is_bool($default));
+                $prop['default'] = $default;
             } else {
                 $required[] = $param->getName();
             }
@@ -186,15 +196,12 @@ class ReflectionTool implements ToolDefinition
             $properties[$param->getName()] = $prop;
         }
 
-        $schema = ['type' => 'object', 'properties' => $properties];
-        if ($required !== []) {
-            $schema['required'] = $required;
-        }
+        $schema = ['type' => 'object', 'properties' => $properties, 'required' => $required];
         return $schema;
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array{type: string, enum?: array<int, string|int>, default?: string|int|float|bool, description?: string}
      */
     private function buildPropertySchema(ReflectionNamedType $type, ReflectionParameter $param): array
     {
