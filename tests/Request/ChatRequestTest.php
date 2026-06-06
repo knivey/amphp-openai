@@ -7,8 +7,10 @@ use Knivey\OpenAi\Request\ChatRequest;
 use Knivey\OpenAi\Request\Content\ImagePart;
 use Knivey\OpenAi\Request\Content\TextPart;
 use Knivey\OpenAi\Request\Message;
+use Knivey\OpenAi\Request\Reasoning;
 use Knivey\OpenAi\Request\Tool\FunctionTool;
 use Knivey\OpenAi\Request\StreamingOptions;
+use Knivey\OpenAi\Provider;
 use PHPUnit\Framework\TestCase;
 
 class ChatRequestTest extends TestCase
@@ -183,5 +185,149 @@ class ChatRequestTest extends TestCase
         $this->assertTrue($toolFunction['strict']);
 
         $this->assertSame(['include_usage' => true], $decoded['stream_options']);
+    }
+
+    public function testReasoningObjectWithOpenAIProviderOutputsReasoningEffort(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+            reasoning: Reasoning::effort('high'),
+        );
+        $arr = $req->toArray(Provider::OPENAI);
+        $this->assertSame('high', $arr['reasoning_effort']);
+        $this->assertArrayNotHasKey('reasoning', $arr);
+    }
+
+    public function testReasoningObjectWithOpenRouterProviderOutputsReasoningObject(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+            reasoning: Reasoning::effort('high'),
+        );
+        $arr = $req->toArray(Provider::OPENROUTER);
+        $this->assertArrayNotHasKey('reasoning_effort', $arr);
+        $this->assertSame(['effort' => 'high'], $arr['reasoning']);
+    }
+
+    public function testReasoningObjectWithMaxTokensOpenRouter(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+            reasoning: Reasoning::maxTokens(8000),
+        );
+        $arr = $req->toArray(Provider::OPENROUTER);
+        $this->assertArrayNotHasKey('reasoning_effort', $arr);
+        $this->assertSame(['max_tokens' => 8000], $arr['reasoning']);
+    }
+
+    public function testReasoningObjectWithMaxTokensOpenAIIgnoresMaxTokens(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+            reasoning: Reasoning::maxTokens(8000),
+        );
+        $arr = $req->toArray(Provider::OPENAI);
+        $this->assertArrayNotHasKey('reasoning', $arr);
+        $this->assertArrayNotHasKey('reasoning_effort', $arr);
+    }
+
+    public function testReasoningObjectWithExcludeAndEffortOpenRouter(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+            reasoning: new Reasoning(effort: 'high', exclude: true),
+        );
+        $arr = $req->toArray(Provider::OPENROUTER);
+        $this->assertSame(['effort' => 'high', 'exclude' => true], $arr['reasoning']);
+        $this->assertArrayNotHasKey('reasoning_effort', $arr);
+    }
+
+    public function testReasoningObjectTakesPrecedenceOverReasoningEffortForOpenAI(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+            reasoningEffort: 'low',
+            reasoning: Reasoning::effort('high'),
+        );
+        $arr = $req->toArray(Provider::OPENAI);
+        $this->assertSame('high', $arr['reasoning_effort']);
+        $this->assertArrayNotHasKey('reasoning', $arr);
+    }
+
+    public function testReasoningObjectTakesPrecedenceOverReasoningEffortForOpenRouter(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+            reasoningEffort: 'low',
+            reasoning: Reasoning::effort('high'),
+        );
+        $arr = $req->toArray(Provider::OPENROUTER);
+        $this->assertSame(['effort' => 'high'], $arr['reasoning']);
+        $this->assertArrayNotHasKey('reasoning_effort', $arr);
+    }
+
+    public function testLegacyReasoningEffortWithOpenRouterTranslatedToReasoningObject(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+            reasoningEffort: 'medium',
+        );
+        $arr = $req->toArray(Provider::OPENROUTER);
+        $this->assertArrayNotHasKey('reasoning_effort', $arr);
+        $this->assertSame(['effort' => 'medium'], $arr['reasoning']);
+    }
+
+    public function testLegacyReasoningEffortWithOpenAIUnchanged(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+            reasoningEffort: 'high',
+        );
+        $arr = $req->toArray(Provider::OPENAI);
+        $this->assertSame('high', $arr['reasoning_effort']);
+        $this->assertArrayNotHasKey('reasoning', $arr);
+    }
+
+    public function testNoReasoningFieldsOmitsBoth(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+        );
+        $arr = $req->toArray(Provider::OPENAI);
+        $this->assertArrayNotHasKey('reasoning_effort', $arr);
+        $this->assertArrayNotHasKey('reasoning', $arr);
+    }
+
+    public function testNoReasoningFieldsOmitsBothForOpenRouter(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+        );
+        $arr = $req->toArray(Provider::OPENROUTER);
+        $this->assertArrayNotHasKey('reasoning_effort', $arr);
+        $this->assertArrayNotHasKey('reasoning', $arr);
+    }
+
+    public function testToArrayWithoutProviderDefaultsToOpenAI(): void
+    {
+        $req = new ChatRequest(
+            model: 'gpt-4',
+            messages: [Message::user('hello')],
+            reasoningEffort: 'high',
+        );
+        $arr = $req->toArray();
+        $this->assertSame('high', $arr['reasoning_effort']);
+        $this->assertArrayNotHasKey('reasoning', $arr);
     }
 }

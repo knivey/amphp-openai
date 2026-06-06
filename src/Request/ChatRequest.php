@@ -2,6 +2,7 @@
 
 namespace Knivey\OpenAi\Request;
 
+use Knivey\OpenAi\Provider;
 use Knivey\OpenAi\Request\Audio\AudioOutputOptions;
 use Knivey\OpenAi\Request\Tool\ToolDefinition;
 use Knivey\OpenAi\Request\StreamingOptions;
@@ -52,6 +53,7 @@ readonly class ChatRequest
         public ?string $reasoningEffort = null,
         public ?array $webSearch = null,
         public ?array $moderation = null,
+        public ?Reasoning $reasoning = null,
     ) {
     }
 
@@ -91,13 +93,14 @@ readonly class ChatRequest
             reasoningEffort: $this->reasoningEffort,
             webSearch: $this->webSearch,
             moderation: $this->moderation,
+            reasoning: $this->reasoning,
         );
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function toArray(): array
+    public function toArray(?Provider $provider = null): array
     {
         $result = [
             'model' => $this->model,
@@ -204,8 +207,25 @@ readonly class ChatRequest
             $result['prediction'] = $this->prediction;
         }
 
-        if ($this->reasoningEffort !== null) {
-            $result['reasoning_effort'] = $this->reasoningEffort;
+        $provider ??= Provider::OPENAI;
+
+        if ($this->reasoning !== null) {
+            if ($provider === Provider::OPENROUTER) {
+                $reasoningArr = $this->reasoning->toArray();
+                if ($reasoningArr !== []) {
+                    $result['reasoning'] = $reasoningArr;
+                }
+            } else {
+                if ($this->reasoning->effort !== null) {
+                    $result['reasoning_effort'] = $this->reasoning->effort;
+                }
+            }
+        } elseif ($this->reasoningEffort !== null) {
+            if ($provider === Provider::OPENROUTER) {
+                $result['reasoning'] = ['effort' => $this->reasoningEffort];
+            } else {
+                $result['reasoning_effort'] = $this->reasoningEffort;
+            }
         }
 
         if ($this->webSearch !== null) {
