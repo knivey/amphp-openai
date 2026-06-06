@@ -10,5 +10,6 @@ readonly class ToolParam
         public ?string $type = null,
         /** @var list<string>|null */
         public ?array $enum = null,
-    ) {}
+    ) {
+    }
 }
