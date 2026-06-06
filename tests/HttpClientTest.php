@@ -142,4 +142,61 @@ class HttpClientTest extends TestCase
         $client = new OpenAiHttpClient('test-key', $mockClient);
         $client->post('/v1/chat/completions', []);
     }
+
+    public function testPostStreamThrowsRateLimitExceptionAfterMaxRetriesOn429(): void
+    {
+        $this->expectException(RateLimitException::class);
+        $response = $this->createMockResponse(429, '{"error":"rate limited"}');
+        $mockClient = new class ($response) implements DelegateHttpClient {
+            public function __construct(private Response $response)
+            {
+            }
+
+            public function request(HttpRequest $request, \Amp\Cancellation $cancellation): Response
+            {
+                return $this->response;
+            }
+        };
+
+        $client = new OpenAiHttpClient('test-key', $mockClient);
+        $client->postStream('/v1/chat/completions', []);
+    }
+
+    public function testPostStreamThrowsAuthenticationExceptionOn401(): void
+    {
+        $this->expectException(AuthenticationException::class);
+        $response = $this->createMockResponse(401, '{"error":"unauthorized"}');
+        $mockClient = new class ($response) implements DelegateHttpClient {
+            public function __construct(private Response $response)
+            {
+            }
+
+            public function request(HttpRequest $request, \Amp\Cancellation $cancellation): Response
+            {
+                return $this->response;
+            }
+        };
+
+        $client = new OpenAiHttpClient('bad-key', $mockClient);
+        $client->postStream('/v1/chat/completions', []);
+    }
+
+    public function testPostStreamThrowsApiExceptionOn500(): void
+    {
+        $this->expectException(ApiException::class);
+        $response = $this->createMockResponse(500, '{"error":"server error"}');
+        $mockClient = new class ($response) implements DelegateHttpClient {
+            public function __construct(private Response $response)
+            {
+            }
+
+            public function request(HttpRequest $request, \Amp\Cancellation $cancellation): Response
+            {
+                return $this->response;
+            }
+        };
+
+        $client = new OpenAiHttpClient('test-key', $mockClient);
+        $client->postStream('/v1/chat/completions', []);
+    }
 }
