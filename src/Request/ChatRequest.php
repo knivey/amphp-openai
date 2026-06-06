@@ -56,6 +56,45 @@ readonly class ChatRequest
     }
 
     /**
+     * @param array<int, Message> $messages
+     */
+    public function withMessages(array $messages): self
+    {
+        return new self(
+            model: $this->model,
+            messages: $messages,
+            temperature: $this->temperature,
+            topP: $this->topP,
+            maxTokens: $this->maxTokens,
+            maxCompletionTokens: $this->maxCompletionTokens,
+            n: $this->n,
+            stop: $this->stop,
+            stream: $this->stream,
+            streamOptions: $this->streamOptions,
+            frequencyPenalty: $this->frequencyPenalty,
+            presencePenalty: $this->presencePenalty,
+            seed: $this->seed,
+            logprobs: $this->logprobs,
+            topLogprobs: $this->topLogprobs,
+            logitBias: $this->logitBias,
+            user: $this->user,
+            store: $this->store,
+            metadata: $this->metadata,
+            serviceTier: $this->serviceTier,
+            tools: $this->tools,
+            toolChoice: $this->toolChoice,
+            parallelToolCalls: $this->parallelToolCalls,
+            responseFormat: $this->responseFormat,
+            modalities: $this->modalities,
+            audio: $this->audio,
+            prediction: $this->prediction,
+            reasoningEffort: $this->reasoningEffort,
+            webSearch: $this->webSearch,
+            moderation: $this->moderation,
+        );
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array

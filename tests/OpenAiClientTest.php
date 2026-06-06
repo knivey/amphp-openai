@@ -298,4 +298,94 @@ class OpenAiClientTest extends TestCase
             maxIterations: 2,
         );
     }
+
+    public function testChatCompletionWithToolsHandlesParallelToolCalls(): void
+    {
+        $toolCallResponse = [
+            'id' => 'chatcmpl-1',
+            'object' => 'chat.completion',
+            'created' => 1234567890,
+            'model' => 'gpt-4',
+            'choices' => [
+                [
+                    'index' => 0,
+                    'message' => [
+                        'role' => 'assistant',
+                        'content' => null,
+                        'tool_calls' => [
+                            [
+                                'id' => 'call_1',
+                                'type' => 'function',
+                                'function' => ['name' => 'echo', 'arguments' => '{"input":"a"}'],
+                            ],
+                            [
+                                'id' => 'call_2',
+                                'type' => 'function',
+                                'function' => ['name' => 'echo', 'arguments' => '{"input":"b"}'],
+                            ],
+                        ],
+                    ],
+                    'finish_reason' => 'tool_calls',
+                ],
+            ],
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+        ];
+        $finalResponse = [
+            'id' => 'chatcmpl-2',
+            'object' => 'chat.completion',
+            'created' => 1234567890,
+            'model' => 'gpt-4',
+            'choices' => [
+                [
+                    'index' => 0,
+                    'message' => ['role' => 'assistant', 'content' => 'Done'],
+                    'finish_reason' => 'stop',
+                ],
+            ],
+            'usage' => ['prompt_tokens' => 20, 'completion_tokens' => 10, 'total_tokens' => 30],
+        ];
+
+        $callCount = 0;
+        $mock = new class ($callCount, $toolCallResponse, $finalResponse) implements DelegateHttpClient {
+            public int $callCount = 0;
+
+            /** @param array<string, mixed> $toolCallResponse */
+            public function __construct(
+                int $callCount,
+                private readonly array $toolCallResponse,
+                /** @var array<string, mixed> */
+                private readonly array $finalResponse,
+            ) {
+                $this->callCount = $callCount;
+            }
+
+            public function request(HttpRequest $request, \Amp\Cancellation $cancellation): Response
+            {
+                $this->callCount++;
+                $data = $this->callCount === 1
+                    ? $this->toolCallResponse
+                    : $this->finalResponse;
+                $body = (string) json_encode($data);
+                $dummyRequest = new HttpRequest('https://api.openai.com/v1/test');
+
+                return new Response('1.1', 200, '', [], $body, $dummyRequest);
+            }
+        };
+
+        $client = new OpenAiClient('test-key', httpClient: new \Knivey\OpenAi\HttpClient('test-key', $mock));
+
+        $registry = ToolRegistry::create()
+            ->add(ReflectionTool::fromCallable(
+                fn (string $input): string => "result:{$input}",
+                name: 'echo',
+            ));
+
+        $response = $client->chatCompletionWithTools(
+            new ChatRequest(model: 'gpt-4', messages: [Message::user('test')], tools: $registry->getTools()),
+            $registry,
+        );
+
+        $this->assertSame('Done', $response->choices[0]->message->content);
+        $this->assertSame(2, $mock->callCount);
+    }
 }

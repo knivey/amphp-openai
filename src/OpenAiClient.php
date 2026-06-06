@@ -53,38 +53,7 @@ class OpenAiClient
                 );
             }
 
-            $currentRequest = new ChatRequest(
-                model: $request->model,
-                messages: $messages,
-                temperature: $request->temperature,
-                topP: $request->topP,
-                maxTokens: $request->maxTokens,
-                maxCompletionTokens: $request->maxCompletionTokens,
-                n: $request->n,
-                stop: $request->stop,
-                stream: $request->stream,
-                streamOptions: $request->streamOptions,
-                frequencyPenalty: $request->frequencyPenalty,
-                presencePenalty: $request->presencePenalty,
-                seed: $request->seed,
-                logprobs: $request->logprobs,
-                topLogprobs: $request->topLogprobs,
-                logitBias: $request->logitBias,
-                user: $request->user,
-                store: $request->store,
-                metadata: $request->metadata,
-                serviceTier: $request->serviceTier,
-                tools: $request->tools,
-                toolChoice: $request->toolChoice,
-                parallelToolCalls: $request->parallelToolCalls,
-                responseFormat: $request->responseFormat,
-                modalities: $request->modalities,
-                audio: $request->audio,
-                prediction: $request->prediction,
-                reasoningEffort: $request->reasoningEffort,
-                webSearch: $request->webSearch,
-                moderation: $request->moderation,
-            );
+            $currentRequest = $request->withMessages($messages);
 
             $response = $this->chatCompletion($currentRequest);
 
