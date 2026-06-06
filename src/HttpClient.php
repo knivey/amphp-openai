@@ -77,7 +77,7 @@ class HttpClient
                 }
 
                 $retryAfter = $this->parseRetryAfter($response);
-                \Amp\delay($retryAfter);
+                \Amp\delay($retryAfter, true, $effectiveCancellation);
                 continue;
             }
 
