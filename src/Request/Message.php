@@ -42,6 +42,9 @@ readonly class Message
         return new self(role: 'user', content: $content);
     }
 
+    /**
+     * @param array<int, array<string, mixed>>|null $toolCalls
+     */
     public static function assistant(?string $content = null, ?array $toolCalls = null, ?string $refusal = null): self
     {
         return new self(role: 'assistant', content: $content, toolCalls: $toolCalls, refusal: $refusal);

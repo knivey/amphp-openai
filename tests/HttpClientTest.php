@@ -92,22 +92,23 @@ class HttpClientTest extends TestCase
         $response429 = $this->createMockResponse(429, '{"error":"rate limited"}');
         $response429Second = $this->createMockResponse(429, '{"error":"rate limited"}');
         $response200 = $this->createMockResponse(200, '{"result":"ok"}');
-        $callCount = 0;
-        $mockClient = new class ($response429, $response429Second, $response200, $callCount) implements DelegateHttpClient {
+        $callCountHolder = new \stdClass();
+        $callCountHolder->count = 0;
+        $mockClient = new class ($response429, $response429Second, $response200, $callCountHolder) implements DelegateHttpClient {
             private int $localCallCount = 0;
 
             public function __construct(
                 private Response $first,
                 private Response $second,
                 private Response $third,
-                private int &$externalCount,
+                private \stdClass $counter,
             ) {
             }
 
             public function request(HttpRequest $request, \Amp\Cancellation $cancellation): Response
             {
                 $this->localCallCount++;
-                $this->externalCount = $this->localCallCount;
+                $this->counter->count = $this->localCallCount;
                 if ($this->localCallCount === 1) {
                     return $this->first;
                 }
@@ -121,7 +122,7 @@ class HttpClientTest extends TestCase
         $client = new OpenAiHttpClient('test-key', $mockClient);
         $result = $client->post('/v1/chat/completions', []);
         $this->assertSame(['result' => 'ok'], $result);
-        $this->assertSame(3, $callCount);
+        $this->assertSame(3, $callCountHolder->count);
     }
 
     public function testThrowsApiExceptionOn500(): void
