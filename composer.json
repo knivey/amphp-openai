@@ -2,7 +2,7 @@
     "name": "knivey/amphp-openai",
     "type": "library",
     "require": {
-        "php": "^8.3",
+        "php": "^8.5",
         "amphp/http-client": "^5.0",
         "amphp/byte-stream": "^2.0"
     },

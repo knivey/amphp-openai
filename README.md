@@ -8,7 +8,7 @@ An async PHP wrapper around the [OpenAI Chat Completions API](https://platform.o
 
 ## Requirements
 
-- PHP 8.3+
+- PHP 8.5+
 - [amphp/http-client](https://amphp.org/http-client) ^5.0
 
 ## Installation
@@ -76,6 +76,8 @@ $response = $client->chatCompletion(new ChatRequest(
 
 ## Tool Calling
 
+### Manual (JSON Schema)
+
 ```php
 use Knivey\OpenAi\Request\Tool\FunctionTool;
 use Knivey\OpenAi\Request\Tool\CustomTool;
@@ -107,6 +109,101 @@ $toolCall = $response->choices[0]->message->toolCalls[0];
 echo $toolCall->function['name'];     // get_weather
 echo $toolCall->function['arguments']; // {"location":"San Francisco"}
 ```
+
+### Reflection-Based (Auto Schema from PHP Callables)
+
+`ReflectionTool` uses PHP type hints to generate JSON Schema automatically:
+
+```php
+use Knivey\OpenAi\Request\Tool\ReflectionTool;
+use Knivey\OpenAi\Request\Tool\ToolRegistry;
+
+$registry = ToolRegistry::create()
+    ->add(ReflectionTool::fromCallable(
+        fn(string $location, string $unit = 'celsius'): string => getWeather($location, $unit),
+        name: 'get_weather',
+        description: 'Get the current weather',
+    ))
+    ->add(ReflectionTool::fromCallable(
+        fn(string $query, int $limit = 5): array => searchWeb($query, $limit),
+        name: 'search_web',
+        description: 'Search the web',
+    ));
+
+// Use the tools in a request — registry provides the schema array
+$response = $client->chatCompletion(new ChatRequest(
+    model: 'gpt-4o',
+    messages: [Message::user('What is the weather in SF?')],
+    tools: $registry->getTools(),
+    toolChoice: 'auto',
+));
+
+// Dispatch tool calls back to your callables
+foreach ($response->choices[0]->message->toolCalls as $toolCall) {
+    $result = $registry->dispatch(
+        $toolCall->function['name'],
+        $toolCall->function['arguments'],
+    );
+}
+```
+
+**Type mapping:** `string` → `"string"`, `int` → `"integer"`, `float` → `"number"`, `bool` → `"boolean"`, `array` → `"object"`. Parameters without defaults are required; parameters with defaults include `"default"` in the schema.
+
+**Backed enums** are auto-detected — the enum values populate the `"enum"` constraint:
+
+```php
+enum Unit: string {
+    case Celsius = 'celsius';
+    case Fahrenheit = 'fahrenheit';
+}
+
+// fn(Unit $unit = Unit::Celsius) generates:
+// {"type": "string", "enum": ["celsius", "fahrenheit"], "default": "celsius"}
+```
+
+### Attribute-Based Tools
+
+Use `#[ToolDescription]` and `#[ToolParam]` on class methods:
+
+```php
+use Knivey\OpenAi\Request\Tool\Attribute\ToolDescription;
+use Knivey\OpenAi\Request\Tool\Attribute\ToolParam;
+
+class WeatherTools {
+    #[ToolDescription('Get the current weather')]
+    public function get_weather(
+        string $location,
+        #[ToolParam(description: 'Temperature unit', enum: ['celsius', 'fahrenheit'])]
+        string $unit = 'celsius',
+    ): string {
+        return getWeather($location, $unit);
+    }
+}
+
+$tools = new WeatherTools();
+$registry = ToolRegistry::create()
+    ->add(ReflectionTool::fromMethod([$tools, 'get_weather']));
+```
+
+### Automatic Tool-Call Loop
+
+`chatCompletionWithTools` runs the full loop — dispatch tool calls, append results, re-send — until the API returns a final answer:
+
+```php
+$response = $client->chatCompletionWithTools(
+    new ChatRequest(
+        model: 'gpt-4o',
+        messages: [Message::user('What is the weather in SF and NYC?')],
+        tools: $registry->getTools(),
+        toolChoice: 'auto',
+    ),
+    $registry,
+);
+
+echo $response->choices[0]->message->content;
+```
+
+Handles parallel tool calls, configurable max iterations (default 10), and graceful error recovery — if a tool invocation fails, the error is sent back to the model so it can retry or adapt.
 
 ## Audio Output
 
