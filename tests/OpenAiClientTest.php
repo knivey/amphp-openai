@@ -36,7 +36,7 @@ class OpenAiClientTest extends TestCase
 
     private function createMockClient(string $body, int $status = 200): DelegateHttpClient
     {
-        return new class($status, $body) implements DelegateHttpClient {
+        return new class ($status, $body) implements DelegateHttpClient {
             public function __construct(
                 private int $status,
                 private string $body,
@@ -76,7 +76,7 @@ class OpenAiClientTest extends TestCase
     {
         $capturedUriHolder = new \stdClass();
         $capturedUriHolder->value = '';
-        $mock = new class(self::SUCCESS_RESPONSE, $capturedUriHolder) implements DelegateHttpClient {
+        $mock = new class (self::SUCCESS_RESPONSE, $capturedUriHolder) implements DelegateHttpClient {
             private \stdClass $capturedUriHolder;
 
             /**

@@ -33,8 +33,10 @@ class HttpClientTest extends TestCase
     public function testSuccessfulPostReturnsJson(): void
     {
         $response = $this->createMockResponse(200, '{"result":"ok"}');
-        $mockClient = new class($response) implements DelegateHttpClient {
-            public function __construct(private Response $response) {}
+        $mockClient = new class ($response) implements DelegateHttpClient {
+            public function __construct(private Response $response)
+            {
+            }
 
             public function request(HttpRequest $request, \Amp\Cancellation $cancellation): Response
             {
@@ -51,8 +53,10 @@ class HttpClientTest extends TestCase
     {
         $this->expectException(AuthenticationException::class);
         $response = $this->createMockResponse(401, '{"error":"unauthorized"}');
-        $mockClient = new class($response) implements DelegateHttpClient {
-            public function __construct(private Response $response) {}
+        $mockClient = new class ($response) implements DelegateHttpClient {
+            public function __construct(private Response $response)
+            {
+            }
 
             public function request(HttpRequest $request, \Amp\Cancellation $cancellation): Response
             {
@@ -68,8 +72,10 @@ class HttpClientTest extends TestCase
     {
         $this->expectException(RateLimitException::class);
         $response = $this->createMockResponse(429, '{"error":"rate limited"}');
-        $mockClient = new class($response) implements DelegateHttpClient {
-            public function __construct(private Response $response) {}
+        $mockClient = new class ($response) implements DelegateHttpClient {
+            public function __construct(private Response $response)
+            {
+            }
 
             public function request(HttpRequest $request, \Amp\Cancellation $cancellation): Response
             {
@@ -85,8 +91,10 @@ class HttpClientTest extends TestCase
     {
         $this->expectException(ApiException::class);
         $response = $this->createMockResponse(500, '{"error":"server error"}');
-        $mockClient = new class($response) implements DelegateHttpClient {
-            public function __construct(private Response $response) {}
+        $mockClient = new class ($response) implements DelegateHttpClient {
+            public function __construct(private Response $response)
+            {
+            }
 
             public function request(HttpRequest $request, \Amp\Cancellation $cancellation): Response
             {
