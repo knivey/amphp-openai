@@ -1,6 +1,6 @@
 <?php
 
-namespace Knivey\OpenAi\Response;
+namespace Knivey\OpenAi\Request;
 
 readonly class StreamingOptions
 {

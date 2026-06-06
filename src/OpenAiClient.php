@@ -71,6 +71,16 @@ class OpenAiClient
                     }
                 }
             }
+
+            if (trim($buffer) !== '') {
+                $line = trim($buffer);
+                if ($line !== 'data: [DONE]' && str_starts_with($line, 'data: ')) {
+                    $json = substr($line, 6);
+                    /** @var array<string, mixed> $data */
+                    $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+                    yield ChatChunk::fromApiResponse($data);
+                }
+            }
         });
     }
 }

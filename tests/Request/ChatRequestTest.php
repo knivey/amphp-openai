@@ -8,7 +8,7 @@ use Knivey\OpenAi\Request\Content\ImagePart;
 use Knivey\OpenAi\Request\Content\TextPart;
 use Knivey\OpenAi\Request\Message;
 use Knivey\OpenAi\Request\Tool\FunctionTool;
-use Knivey\OpenAi\Response\StreamingOptions;
+use Knivey\OpenAi\Request\StreamingOptions;
 use PHPUnit\Framework\TestCase;
 
 class ChatRequestTest extends TestCase
