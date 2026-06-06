@@ -55,15 +55,17 @@ class ToolRegistry
         $results = [];
         foreach ($toolCalls as $toolCall) {
             $function = $toolCall->function;
-            if ($function === null) {
-                continue;
-            }
             $name = $function['name'] ?? null;
             $arguments = $function['arguments'] ?? null;
-            if (!\is_string($name) || !\is_string($arguments)) {
+            if ($function === null || !\is_string($name) || !\is_string($arguments)) {
+                $results[$toolCall->id] = ['error' => 'Malformed tool call: missing function data'];
                 continue;
             }
-            $results[$toolCall->id] = $this->dispatch($name, $arguments);
+            try {
+                $results[$toolCall->id] = $this->dispatch($name, $arguments);
+            } catch (\Throwable $e) {
+                $results[$toolCall->id] = ['error' => $e->getMessage()];
+            }
         }
         return $results;
     }

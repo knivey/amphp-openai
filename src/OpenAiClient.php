@@ -77,8 +77,9 @@ class OpenAiClient
             $results = $registry->dispatchAll(array_values($toolCalls));
             foreach ($toolCalls as $toolCall) {
                 $result = $results[$toolCall->id];
+                $content = is_string($result) ? $result : json_encode($result, JSON_THROW_ON_ERROR);
                 $messages[] = \Knivey\OpenAi\Request\Message::tool(
-                    is_string($result) ? $result : json_encode($result, JSON_THROW_ON_ERROR),
+                    $content,
                     $toolCall->id,
                 );
             }
