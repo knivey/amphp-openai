@@ -1,7 +1,6 @@
 # knivey/amphp-openai
 
 [![CI](https://github.com/knivey/amphp-openai/actions/workflows/ci.yml/badge.svg)](https://github.com/knivey/amphp-openai/actions/workflows/ci.yml)
-[![Coverage](https://codecov.io/gh/knivey/amphp-openai/branch/master/graph/badge.svg)](https://codecov.io/gh/knivey/amphp-openai)
 [![PHP Version](https://img.shields.io/packagist/php-v/knivey/amphp-openai)](https://packagist.org/packages/knivey/amphp-openai)
 [![License](https://img.shields.io/packagist/l/knivey/amphp-openai)](https://packagist.org/packages/knivey/amphp-openai)
 
