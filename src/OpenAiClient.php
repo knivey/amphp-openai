@@ -12,13 +12,25 @@ use Knivey\OpenAi\Response\ChatResponse;
 class OpenAiClient
 {
     private readonly string $baseUrl;
+    private readonly Provider $provider;
 
     public function __construct(
         private readonly string $apiKey,
         ?string $baseUrl = null,
         private readonly ?HttpClient $httpClient = null,
+        ?Provider $provider = null,
     ) {
         $this->baseUrl = rtrim($baseUrl ?? 'https://api.openai.com/v1', '/');
+        $this->provider = $provider ?? (
+            str_contains($this->baseUrl, 'openrouter.ai')
+                ? Provider::OPENROUTER
+                : Provider::OPENAI
+        );
+    }
+
+    public function getProvider(): Provider
+    {
+        return $this->provider;
     }
 
     private function getHttpClient(): HttpClient
@@ -31,7 +43,7 @@ class OpenAiClient
 
     public function chatCompletion(ChatRequest $request): ChatResponse
     {
-        $body = $request->toArray();
+        $body = $request->toArray($this->provider);
         $data = $this->getHttpClient()->post($this->baseUrl . '/chat/completions', $body);
 
         return ChatResponse::fromApiResponse($data);
@@ -91,7 +103,7 @@ class OpenAiClient
      */
     public function chatCompletionStream(ChatRequest $request): Pipeline
     {
-        $body = $request->toArray();
+        $body = $request->toArray($this->provider);
         $body['stream'] = true;
 
         return Pipeline::fromIterable(function () use ($body): \Generator {

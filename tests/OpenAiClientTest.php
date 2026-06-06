@@ -6,6 +6,7 @@ use Amp\Http\Client\DelegateHttpClient;
 use Amp\Http\Client\Request as HttpRequest;
 use Amp\Http\Client\Response;
 use Knivey\OpenAi\OpenAiClient;
+use Knivey\OpenAi\Provider;
 use Knivey\OpenAi\Request\ChatRequest;
 use Knivey\OpenAi\Request\Message;
 use Knivey\OpenAi\Request\Tool\ReflectionTool;
@@ -387,5 +388,57 @@ class OpenAiClientTest extends TestCase
 
         $this->assertSame('Done', $response->choices[0]->message->content);
         $this->assertSame(2, $mock->callCount);
+    }
+
+    public function testProviderDefaultsToOpenAI(): void
+    {
+        $mock = $this->createMockClient((string) json_encode(self::SUCCESS_RESPONSE));
+        $client = new OpenAiClient('test-key', httpClient: new \Knivey\OpenAi\HttpClient('test-key', $mock));
+        $this->assertSame(Provider::OPENAI, $client->getProvider());
+    }
+
+    public function testProviderAutoDetectsOpenRouter(): void
+    {
+        $mock = $this->createMockClient((string) json_encode(self::SUCCESS_RESPONSE));
+        $client = new OpenAiClient(
+            'test-key',
+            baseUrl: 'https://openrouter.ai/api/v1',
+            httpClient: new \Knivey\OpenAi\HttpClient('test-key', $mock),
+        );
+        $this->assertSame(Provider::OPENROUTER, $client->getProvider());
+    }
+
+    public function testProviderExplicitOverridesAutoDetection(): void
+    {
+        $mock = $this->createMockClient((string) json_encode(self::SUCCESS_RESPONSE));
+        $client = new OpenAiClient(
+            'test-key',
+            baseUrl: 'https://openrouter.ai/api/v1',
+            provider: Provider::OPENAI,
+            httpClient: new \Knivey\OpenAi\HttpClient('test-key', $mock),
+        );
+        $this->assertSame(Provider::OPENAI, $client->getProvider());
+    }
+
+    public function testProviderAutoDetectsOpenRouterSubdomain(): void
+    {
+        $mock = $this->createMockClient((string) json_encode(self::SUCCESS_RESPONSE));
+        $client = new OpenAiClient(
+            'test-key',
+            baseUrl: 'https://custom.openrouter.ai/v1',
+            httpClient: new \Knivey\OpenAi\HttpClient('test-key', $mock),
+        );
+        $this->assertSame(Provider::OPENROUTER, $client->getProvider());
+    }
+
+    public function testProviderNonOpenRouterUrlDefaultsToOpenAI(): void
+    {
+        $mock = $this->createMockClient((string) json_encode(self::SUCCESS_RESPONSE));
+        $client = new OpenAiClient(
+            'test-key',
+            baseUrl: 'https://api.groq.com/openai/v1',
+            httpClient: new \Knivey\OpenAi\HttpClient('test-key', $mock),
+        );
+        $this->assertSame(Provider::OPENAI, $client->getProvider());
     }
 }
