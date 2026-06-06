@@ -23,10 +23,9 @@ jobs:
         with:
           php-version: ${{ matrix.php-version }}
           coverage: pcov
-          tools: phpunit, phpstan, php-cs-fixer
 
       - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
+        run: composer install --prefer-dist --no-progress && composer dump-autoload
 
       - name: PHPStan
         run: vendor/bin/phpstan analyse
