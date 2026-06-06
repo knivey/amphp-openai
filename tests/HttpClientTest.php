@@ -68,7 +68,7 @@ class HttpClientTest extends TestCase
         $client->post('/v1/chat/completions', []);
     }
 
-    public function testThrowsRateLimitExceptionOn429(): void
+    public function testThrowsRateLimitExceptionAfterMaxRetriesOn429(): void
     {
         $this->expectException(RateLimitException::class);
         $response = $this->createMockResponse(429, '{"error":"rate limited"}');
@@ -85,6 +85,43 @@ class HttpClientTest extends TestCase
 
         $client = new OpenAiHttpClient('test-key', $mockClient);
         $client->post('/v1/chat/completions', []);
+    }
+
+    public function testRetries429AndSucceeds(): void
+    {
+        $response429 = $this->createMockResponse(429, '{"error":"rate limited"}');
+        $response429Second = $this->createMockResponse(429, '{"error":"rate limited"}');
+        $response200 = $this->createMockResponse(200, '{"result":"ok"}');
+        $callCount = 0;
+        $mockClient = new class ($response429, $response429Second, $response200, $callCount) implements DelegateHttpClient {
+            private int $localCallCount = 0;
+
+            public function __construct(
+                private Response $first,
+                private Response $second,
+                private Response $third,
+                private int &$externalCount,
+            ) {
+            }
+
+            public function request(HttpRequest $request, \Amp\Cancellation $cancellation): Response
+            {
+                $this->localCallCount++;
+                $this->externalCount = $this->localCallCount;
+                if ($this->localCallCount === 1) {
+                    return $this->first;
+                }
+                if ($this->localCallCount === 2) {
+                    return $this->second;
+                }
+                return $this->third;
+            }
+        };
+
+        $client = new OpenAiHttpClient('test-key', $mockClient);
+        $result = $client->post('/v1/chat/completions', []);
+        $this->assertSame(['result' => 'ok'], $result);
+        $this->assertSame(3, $callCount);
     }
 
     public function testThrowsApiExceptionOn500(): void
