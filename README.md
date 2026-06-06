@@ -65,7 +65,9 @@ $response = $client->chatCompletion(new ChatRequest(
     messages: [
         Message::user([
             new TextPart('What is in this image?'),
+            // Pass a URL — OpenAI fetches it server-side, no download on your end
             ImagePart::url('https://example.com/photo.jpg', 'high'),
+            // Or pass raw base64 bytes directly — wrapped into a data URI for you
             ImagePart::base64($base64Data, 'image/png'),
         ]),
     ],
